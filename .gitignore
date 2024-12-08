@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environment variables
+.env
+
+# SQLite database files
+db/*.db
+
+# Flask cache files
+instance/
+
+# pytest
+.cache
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Virtual environment
+venv/
+ENV/
+env.bak/
+env/
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
