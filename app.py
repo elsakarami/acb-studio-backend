@@ -24,6 +24,7 @@ def hash_password(password):
     """return sha-256 hash of this password."""
     return hashlib.sha256(password.encode()).hexdigest()
 
+
 spam_clf, vectorizer = train_spam_model()
 
 @app.route('/register', methods=['POST'])
