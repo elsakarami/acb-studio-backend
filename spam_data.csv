@@ -1,0 +1,9 @@
+email,label
+"spammer1@example.com",1
+"normal.user@example.com",0
+"spammer2@example.com",1
+"user123@example.com",0
+"spammer3@example.com",1
+"jane.doe@example.com",0
+"spammer4@example.com",1
+"john.smith@example.com",0
