@@ -1,31 +1,63 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 import sqlite3
 import hashlib
 from werkzeug.exceptions import HTTPException
-from model import train_spam_model 
 import os
+import re
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key')
 
 DATABASE = 'db/users.db'
 
-
 def get_db_connection():
     try:
-        connct = sqlite3.connect(DATABASE)
-        connct.row_factory = sqlite3.Row
-        return connct
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        return conn
     except sqlite3.Error as e:
         app.logger.error(f"db connection failed. please check this reason: {e}")
         raise
 
 def hash_password(password):
-    """return sha-256 hash of this password."""
     return hashlib.sha256(password.encode()).hexdigest()
 
+def validate_password(password):
+    errors = {
+        "length": len(password) >= 8,
+        "special_char": bool(re.search(r"\W", password)),
+        "number": bool(re.search(r"\d", password)),
+        "uppercase": bool(re.search(r"[A-Z]", password)),
+        "lowercase": bool(re.search(r"[a-z]", password))
+    }
+    return errors
 
-spam_clf, vectorizer = train_spam_model()
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    hashed_password = hash_password(password)
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = ? AND password = ?", (email, hashed_password))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            return jsonify({"message": "Login successful"}), 200
+        else:
+            return jsonify({"error": "Invalid credentials"}), 401
+    except sqlite3.Error as e:
+        app.logger.error(f"Login error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -35,24 +67,23 @@ def register():
 
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
-    
-    email_vector = vectorizer.transform([email])
-    prediction = spam_clf.predict(email_vector)
-    if prediction[0] == 1: 
-        return jsonify({"error": "Spam email detected, registration blocked"}), 400
-    
+
+    password_errors = validate_password(password)
+    if not all(password_errors.values()):
+        return jsonify({"password_errors": password_errors}), 400
+
     hashed_password = hash_password(password)
     
     try:
-        connct = get_db_connection()
-        cursor = connct.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
         if cursor.fetchone() is not None:
             return jsonify({"error": "Email already registered"}), 400
 
         cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
-        connct.commit()
-        connct.close()
+        conn.commit()
+        conn.close()
 
         return jsonify({"message": "User registered successfully"}), 201
     except sqlite3.Error as e:
@@ -62,7 +93,6 @@ def register():
 
 @app.errorhandler(HTTPException)
 def handle_exception(e):
-    """Handle HTTP exceptions with a JSON response."""
     response = e.get_response()
     response.data = jsonify({
         "code": e.code,
@@ -75,7 +105,6 @@ def handle_exception(e):
 
 @app.errorhandler(Exception)
 def handle_general_exception(e):
-    """Handle non-HTTP exceptions with a JSON response."""
     app.logger.error(f"Unexpected error: {e}")
     return jsonify({"error": "Internal server error"}), 500
 
