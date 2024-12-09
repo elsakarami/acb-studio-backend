@@ -4,8 +4,10 @@ import hashlib
 from werkzeug.exceptions import HTTPException
 import os
 import re
+from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
+CORS(app, resources={r"/register": {"origins": "http://localhost:3000"}}) 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key')
 
 DATABASE = 'db/users.db'
